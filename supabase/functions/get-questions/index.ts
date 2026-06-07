@@ -5,12 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods":
-    "POST, OPTIONS",
+    "GET, OPTIONS",
 };
 
 Deno.serve(async (req) => {
 
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders,
@@ -19,57 +18,29 @@ Deno.serve(async (req) => {
 
   try {
 
-    const body = await req.json();
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const responseResult = await supabase
-      .from("survey_responses")
-      .insert({
-        survey_id: body.survey_id
-      })
-      .select()
-      .single();
+    const { data, error } =
+      await supabase
+        .from("vw_question_admin")
+        .select("*")
+        .order("survey_name")
+        .order("display_order");
 
-    if (responseResult.error) {
+    if (error) {
       console.error(
-        "Response Insert Error:",
-        responseResult.error
+        "Database Error:",
+        error
       );
-      throw responseResult.error;
-    }
 
-    const responseId =
-      responseResult.data.response_id;
-
-    const answers = body.answers.map(
-      (answer: any) => ({
-        response_id: responseId,
-        question_id: answer.question_id,
-        answer_value: answer.answer
-      })
-    );
-
-    const answerResult = await supabase
-      .from("survey_answers")
-      .insert(answers);
-
-    if (answerResult.error) {
-      console.error(
-        "Answer Insert Error:",
-        answerResult.error
-      );
-      throw answerResult.error;
+      throw error;
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        response_id: responseId
-      }),
+      JSON.stringify(data),
       {
         status: 200,
         headers: {
@@ -83,8 +54,8 @@ Deno.serve(async (req) => {
   } catch (error) {
 
     console.error(
-      "FULL ERROR:",
-      JSON.stringify(error, null, 2)
+      "Function Error:",
+      error
     );
 
     return new Response(

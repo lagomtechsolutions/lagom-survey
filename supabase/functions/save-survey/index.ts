@@ -10,7 +10,6 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
 
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", {
       headers: corsHeaders,
@@ -26,49 +25,26 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const responseResult = await supabase
-      .from("survey_responses")
-      .insert({
-        survey_id: body.survey_id
-      })
-      .select()
-      .single();
+    const { data, error } =
+      await supabase
+        .from("surveys")
+        .insert({
+          survey_name: body.survey_name,
+          survey_description: body.survey_description,
+          audience_id: body.audience_id,
+          is_active: body.is_active
+        })
+        .select()
+        .single();
 
-    if (responseResult.error) {
-      console.error(
-        "Response Insert Error:",
-        responseResult.error
-      );
-      throw responseResult.error;
-    }
-
-    const responseId =
-      responseResult.data.response_id;
-
-    const answers = body.answers.map(
-      (answer: any) => ({
-        response_id: responseId,
-        question_id: answer.question_id,
-        answer_value: answer.answer
-      })
-    );
-
-    const answerResult = await supabase
-      .from("survey_answers")
-      .insert(answers);
-
-    if (answerResult.error) {
-      console.error(
-        "Answer Insert Error:",
-        answerResult.error
-      );
-      throw answerResult.error;
+    if (error) {
+      throw error;
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        response_id: responseId
+        survey_id: data.survey_id
       }),
       {
         status: 200,
@@ -82,10 +58,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
 
-    console.error(
-      "FULL ERROR:",
-      JSON.stringify(error, null, 2)
-    );
+    console.error(error);
 
     return new Response(
       JSON.stringify({
